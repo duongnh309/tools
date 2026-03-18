@@ -249,7 +249,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>📋 JSON Formatter</h1>
+        <h1>📋 The Best JSON Formatter By Phát Mập Địt</h1>
         
         <div id="message" class="message"></div>
         
@@ -386,6 +386,88 @@
             }
         }
         
+        function fixJSON() {
+            const input = document.getElementById('input');
+            let text = input.value;
+            
+            try {
+                // Try to parse first
+                JSON.parse(text);
+                showMessage('JSON is already valid!', 'success');
+                return;
+            } catch (e) {
+                // Try to fix common issues
+                text = fixUnescapedQuotes(text);
+                
+                try {
+                    JSON.parse(text);
+                    input.value = text;
+                    input.classList.remove('textarea-error');
+                    showMessage('JSON fixed and formatted!', 'success');
+                    setTimeout(formatJSON, 100);
+                } catch (error) {
+                    input.classList.add('textarea-error');
+                    showMessage(`Still invalid: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        function fixUnescapedQuotes(jsonStr) {
+            // Intelligent fix: scan through and fix unescaped quotes in string values
+            let result = '';
+            let i = 0;
+            
+            while (i < jsonStr.length) {
+                let char = jsonStr[i];
+                
+                if (char === '"') {
+                    // Start of a string value
+                    result += char;
+                    i++;
+                    
+                    // Read until closing quote
+                    while (i < jsonStr.length) {
+                        char = jsonStr[i];
+                        
+                        if (char === '\\' && i + 1 < jsonStr.length) {
+                            // Escape sequence - keep both characters
+                            result += char + jsonStr[i + 1];
+                            i += 2;
+                        } else if (char === '"') {
+                            // Check if this might be closing quote or content
+                            let nextPos = i + 1;
+                            let nextChar = nextPos < jsonStr.length ? jsonStr[nextPos] : '';
+                            
+                            // Skip whitespace to find next meaningful character
+                            while (nextPos < jsonStr.length && /\s/.test(jsonStr[nextPos])) {
+                                nextPos++;
+                            }
+                            nextChar = nextPos < jsonStr.length ? jsonStr[nextPos] : '';
+                            
+                            // If followed by :, }, ], or comma, it's closing quote; otherwise escape it
+                            if (nextChar === ':' || nextChar === '}' || nextChar === ']' || nextChar === ',' || nextChar === '') {
+                                result += char;
+                                i++;
+                                break;
+                            } else {
+                                // Unescaped quote inside string - escape it
+                                result += '\\"';
+                                i++;
+                            }
+                        } else {
+                            result += char;
+                            i++;
+                        }
+                    }
+                } else {
+                    result += char;
+                    i++;
+                }
+            }
+            
+            return result;
+        }
+        
         function minifyJSON() {
             const input = document.getElementById('input');
             const output = document.getElementById('output-display');
@@ -445,7 +527,31 @@
         
         // Auto-format on paste
         document.getElementById('input').addEventListener('paste', () => {
-            setTimeout(formatJSON, 10);
+            setTimeout(() => {
+                const input = document.getElementById('input');
+                let text = input.value;
+                
+                try {
+                    // Try to parse first
+                    JSON.parse(text);
+                    // If valid, just format it
+                    formatJSON();
+                } catch (e) {
+                    // If invalid, try to fix it
+                    text = fixUnescapedQuotes(text);
+                    input.value = text;
+                    
+                    try {
+                        JSON.parse(text);
+                        input.classList.remove('textarea-error');
+                        formatJSON();
+                        showMessage('JSON auto-fixed and formatted!', 'success');
+                    } catch (error) {
+                        input.classList.add('textarea-error');
+                        showMessage(`Paste error - click Fix JSON: ${error.message}`, 'error');
+                    }
+                }
+            }, 10);
         });
     </script>
 </body>
