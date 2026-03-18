@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MD → PDF Converter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Fraunces:ital,wght@0,300;0,700;1,300&display=swap');
+
+  :root {
+    --ink: #1a1a2e;
+    --paper: #f5f0e8;
+    --accent: #c84b31;
+    --muted: #8a8070;
+    --border: #d4cfc5;
+    --panel: #ede8df;
+    --highlight: #fff8f0;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 2px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo .arrow {
+    color: var(--accent);
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  .tagline {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* TOOLBAR */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-wrap: wrap;
+  }
+
+  .toolbar label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  .toolbar input[type="text"] {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    background: var(--highlight);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    color: var(--ink);
+    width: 220px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .toolbar input[type="text"]:focus { border-color: var(--accent); }
+
+  .toolbar select {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    background: var(--highlight);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    color: var(--ink);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+  .spacer { flex: 1; }
+
+  .btn-convert {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 9px 24px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: background 0.15s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-convert:hover { background: #a83825; }
+  .btn-convert:active { transform: scale(0.97); }
+
+  .btn-upload {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--border);
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .btn-upload:hover { border-color: var(--ink); background: var(--highlight); }
+
+  #file-input { display: none; }
+
+  /* MAIN */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .pane {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .pane-header {
+    padding: 10px 20px;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel);
+  }
+
+  .pane-header .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  .editor-pane { border-right: 2px solid var(--ink); }
+
+  #md-editor {
+    flex: 1;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.88rem;
+    line-height: 1.75;
+    padding: 24px;
+    border: none;
+    outline: none;
+    resize: none;
+    background: var(--paper);
+    color: var(--ink);
+    tab-size: 2;
+    overflow-y: auto;
+  }
+
+  #md-editor::placeholder { color: var(--border); }
+
+  /* PREVIEW */
+  .preview-pane { background: var(--highlight); }
+
+  #preview-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px;
+  }
+
+  /* Markdown rendered styles */
+  #preview-area h1, #preview-area h2, #preview-area h3,
+  #preview-area h4, #preview-area h5, #preview-area h6 {
+    font-family: 'Fraunces', serif;
+    color: var(--ink);
+    margin: 1.2em 0 0.5em;
+    line-height: 1.25;
+  }
+
+  #preview-area h1 { font-size: 2rem; border-bottom: 2px solid var(--accent); padding-bottom: 6px; }
+  #preview-area h2 { font-size: 1.5rem; }
+  #preview-area h3 { font-size: 1.2rem; }
+
+  #preview-area p { margin: 0.8em 0; line-height: 1.7; font-size: 0.9rem; }
+
+  #preview-area code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 0.85em;
+    color: var(--accent);
+  }
+
+  #preview-area pre {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 16px 20px;
+    border-radius: 2px;
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+
+  #preview-area pre code { background: transparent; color: var(--paper); padding: 0; }
+
+  #preview-area blockquote {
+    border-left: 3px solid var(--accent);
+    margin: 1em 0;
+    padding: 8px 20px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  #preview-area ul, #preview-area ol {
+    margin: 0.8em 0;
+    padding-left: 1.5em;
+    font-size: 0.9rem;
+  }
+
+  #preview-area li { margin: 0.3em 0; line-height: 1.6; }
+
+  #preview-area table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    font-size: 0.85rem;
+  }
+
+  #preview-area th, #preview-area td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+  }
+
+  #preview-area th {
+    background: var(--panel);
+    font-weight: 600;
+  }
+
+  #preview-area hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5em 0;
+  }
+
+  #preview-area a { color: var(--accent); }
+
+  /* STATUS BAR */
+  .statusbar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 8px 32px;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .status-ok { color: #3a8a4a; }
+  .status-info { color: var(--accent); }
+
+  /* PRINT / PDF STYLES */
+  @media print {
+    header, .toolbar, .pane-header, .statusbar, .editor-pane { display: none !important; }
+    body { background: white; }
+    main { display: block; }
+    .preview-pane { background: white; }
+    #preview-area {
+      padding: 0;
+      font-size: 11pt;
+    }
+    #preview-area h1 { font-size: 22pt; }
+    #preview-area h2 { font-size: 17pt; }
+    #preview-area h3 { font-size: 13pt; }
+  }
+
+  /* Animations */
+  @keyframes flash {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+
+  .flashing { animation: flash 0.3s ease; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Empty state */
+  .empty-hint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--border);
+    font-size: 0.8rem;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  .empty-hint .big { font-family: 'Fraunces', serif; font-size: 3rem; color: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    MD <span class="arrow">→</span> PDF
+  </div>
+  <div class="tagline">Local Markdown Converter</div>
+</header>
+
+<div class="toolbar">
+  <label>Filename</label>
+  <input type="text" id="filename-input" placeholder="document" value="document" />
+  <div class="sep"></div>
+  <label>Page Size</label>
+  <select id="page-size">
+    <option value="A4">A4</option>
+    <option value="Letter">Letter</option>
+    <option value="A3">A3</option>
+  </select>
+  <div class="sep"></div>
+  <button class="btn-upload" onclick="document.getElementById('file-input').click()">↑ Open .md File</button>
+  <input type="file" id="file-input" accept=".md,.markdown,.txt" />
+  <div class="spacer"></div>
+  <button class="btn-convert" onclick="convertToPDF()">⬇ Export PDF</button>
+</div>
+
+<main>
+  <div class="pane editor-pane">
+    <div class="pane-header"><span class="dot"></span> Markdown Editor</div>
+    <textarea id="md-editor" placeholder="# Start writing Markdown here...
+
+Paste or type your content.
+You can also open an .md file using the button above."></textarea>
+  </div>
+
+  <div class="pane preview-pane">
+    <div class="pane-header"><span class="dot"></span> Live Preview</div>
+    <div id="preview-area">
+      <div class="empty-hint" id="empty-hint">
+        <div class="big">∅</div>
+        <div>Start typing to see a preview</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="statusbar">
+  <span id="status-words">0 words</span>
+  <span id="status-chars">0 chars</span>
+  <span id="status-lines">0 lines</span>
+  <span style="flex:1"></span>
+  <span id="status-msg" class="status-ok">Ready</span>
+</div>
+
+<script>
+  const editor = document.getElementById('md-editor');
+  const preview = document.getElementById('preview-area');
+  const emptyHint = document.getElementById('empty-hint');
+  const statusWords = document.getElementById('status-words');
+  const statusChars = document.getElementById('status-chars');
+  const statusLines = document.getElementById('status-lines');
+  const statusMsg = document.getElementById('status-msg');
+
+  // Configure marked
+  marked.setOptions({ breaks: true, gfm: true });
+
+  function updatePreview() {
+    const md = editor.value;
+
+    if (!md.trim()) {
+      preview.innerHTML = '';
+      preview.appendChild(emptyHint);
+      updateStats(md);
+      return;
+    }
+
+    const rendered = marked.parse(md);
+    preview.innerHTML = rendered;
+    updateStats(md);
+  }
+
+  function updateStats(text) {
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const chars = text.length;
+    const lines = text.split('\n').length;
+    statusWords.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+    statusChars.textContent = `${chars} char${chars !== 1 ? 's' : ''}`;
+    statusLines.textContent = `${lines} line${lines !== 1 ? 's' : ''}`;
+  }
+
+  editor.addEventListener('input', updatePreview);
+
+  // File upload
+  document.getElementById('file-input').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      editor.value = ev.target.result;
+      updatePreview();
+      // Set filename from file
+      let name = file.name.replace(/\.(md|markdown|txt)$/i, '');
+      document.getElementById('filename-input').value = name;
+      setStatus(`Loaded: ${file.name}`, 'info');
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  function setStatus(msg, type) {
+    statusMsg.textContent = msg;
+    statusMsg.className = type === 'info' ? 'status-info' : 'status-ok';
+    setTimeout(() => {
+      statusMsg.textContent = 'Ready';
+      statusMsg.className = 'status-ok';
+    }, 3000);
+  }
+
+  function convertToPDF() {
+    const md = editor.value.trim();
+    if (!md) {
+      setStatus('Nothing to export!', 'info');
+      return;
+    }
+
+    const filename = (document.getElementById('filename-input').value.trim() || 'document');
+    const pageSize = document.getElementById('page-size').value;
+
+    // Build a self-contained print window
+    const rendered = marked.parse(md);
+
+    const pageSizes = {
+      'A4': '@page { size: A4; margin: 20mm 22mm; }',
+      'Letter': '@page { size: letter; margin: 1in 1.1in; }',
+      'A3': '@page { size: A3; margin: 22mm 26mm; }'
+    };
+
+    const printDoc = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${filename}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Fraunces:ital,wght@0,300;0,700;1,300&display=swap');
+  ${pageSizes[pageSize] || pageSizes['A4']}
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5pt;
+    color: #1a1a2e;
+    line-height: 1.7;
+  }
+  h1,h2,h3,h4,h5,h6 {
+    font-family: 'Fraunces', serif;
+    color: #1a1a2e;
+    margin: 1.1em 0 0.4em;
+    line-height: 1.2;
+  }
+  h1 { font-size: 22pt; border-bottom: 2px solid #c84b31; padding-bottom: 5pt; }
+  h2 { font-size: 16pt; }
+  h3 { font-size: 13pt; }
+  p { margin: 0.6em 0; }
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: #ede8df;
+    padding: 1pt 4pt;
+    font-size: 0.88em;
+    color: #c84b31;
+  }
+  pre {
+    background: #f0f4ff;
+    color: #1a1a2e;
+    border: 1.5pt solid #c5d0f0;
+    border-left: 4pt solid #4a6cf7;
+    border-radius: 4pt;
+    padding: 12pt 14pt;
+    margin: 1em 0;
+    page-break-inside: avoid;
+    position: relative;
+  }
+  pre code {
+    background: transparent;
+    color: #1a1a2e;
+    padding: 0;
+    font-size: 9pt;
+    line-height: 1.6;
+  }
+  blockquote {
+    border-left: 3pt solid #c84b31;
+    margin: 1em 0;
+    padding: 6pt 14pt;
+    color: #8a8070;
+    font-style: italic;
+  }
+  ul, ol { padding-left: 1.4em; margin: 0.7em 0; }
+  li { margin: 0.25em 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 9.5pt; }
+  th, td { border: 1px solid #d4cfc5; padding: 5pt 9pt; text-align: left; }
+  th { background: #ede8df; font-weight: 600; }
+  hr { border: none; border-top: 1px solid #d4cfc5; margin: 1.2em 0; }
+  a { color: #c84b31; }
+  img { max-width: 100%; }
+  .pdf-footer {
+    margin-top: 40pt;
+    padding-top: 10pt;
+    border-top: 1px solid #d4cfc5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8.5pt;
+    color: #8a8070;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .pdf-footer .author {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 10pt;
+    color: #1a1a2e;
+  }
+</style>
+</head>
+<body>
+${rendered}
+<div class="pdf-footer">
+  <span class="author">DuongNH</span>
+  <span id="pdf-date"></span>
+</div>
+<script>
+  document.getElementById('pdf-date').textContent = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+<\/script>
+<script>
+  window.onload = function() {
+    setTimeout(function() { window.print(); }, 400);
+  };
+<\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    win.document.open();
+    win.document.write(printDoc);
+    win.document.close();
+
+    setStatus(`Exported: ${filename}.pdf`, 'ok');
+  }
+
+  // Keyboard shortcut: Cmd/Ctrl+P
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+      e.preventDefault();
+      convertToPDF();
+    }
+  });
+
+  // Tab key in textarea
+  editor.addEventListener('keydown', function(e) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const s = this.selectionStart;
+      const val = this.value;
+      this.value = val.substring(0, s) + '  ' + val.substring(this.selectionEnd);
+      this.selectionStart = this.selectionEnd = s + 2;
+    }
+  });
+
+  // Load sample on start
+  editor.value = `# Welcome to MD → PDF
+
+A **local** Markdown to PDF converter. No uploads, no accounts — everything runs in your browser.
+`;
+
+  updatePreview();
+</script>
+</body>
+</html>
