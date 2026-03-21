@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Image Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2e;
+    --accent: #e8ff47;
+    --accent2: #47c5ff;
+    --danger: #ff4757;
+    --text: #e8e8f0;
+    --muted: #5a5a7a;
+    --radius: 6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+
+  .header-meta {
+    font-size: 0.7rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .status-dot.error { background: var(--danger); }
+
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  /* Config panel */
+  .config-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    animation: slideDown 0.3s ease;
+  }
+
+  .config-panel h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    gap: 0.75rem;
+    align-items: end;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .field label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  input[type="text"], input[type="password"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    padding: 0.6rem 0.75rem;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+
+  input:focus { border-color: var(--accent); }
+
+  /* Buttons */
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    padding: 0.6rem 1.2rem;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0a0a0f;
+  }
+  .btn-primary:hover { background: #d4eb2e; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid transparent;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.7rem;
+  }
+  .btn-danger:hover { background: rgba(255,71,87,0.1); border-color: var(--danger); }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .image-count {
+    font-size: 0.7rem;
+    color: var(--muted);
+    padding: 0.3rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(232,255,71,0.03);
+  }
+
+  .upload-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .upload-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.4;
+  }
+
+  .upload-text { font-size: 0.8rem; color: var(--muted); }
+  .upload-text strong { color: var(--accent); }
+
+  /* Progress bar */
+  .upload-progress {
+    margin-top: 0.75rem;
+    display: none;
+  }
+  .upload-progress.active { display: block; }
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.3s;
+    border-radius: 999px;
+  }
+  .progress-label { font-size: 0.65rem; color: var(--muted); }
+
+  /* Image grid */
+  .image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+
+  .image-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: all 0.2s;
+    animation: fadeUp 0.3s ease both;
+    position: relative;
+  }
+
+  .image-card:hover {
+    border-color: var(--muted);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  .image-card:hover .card-actions { opacity: 1; }
+
+  .card-thumb {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+    background: var(--bg);
+  }
+
+  .card-thumb-placeholder {
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    opacity: 0.2;
+  }
+
+  .card-actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    gap: 0.3rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .card-action-btn {
+    width: 28px; height: 28px;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    transition: all 0.15s;
+  }
+
+  .card-action-btn.copy {
+    background: rgba(19,19,26,0.9);
+    color: var(--accent2);
+    backdrop-filter: blur(4px);
+  }
+  .card-action-btn.copy:hover { background: var(--accent2); color: var(--bg); }
+
+  .card-action-btn.del {
+    background: rgba(19,19,26,0.9);
+    color: var(--danger);
+    backdrop-filter: blur(4px);
+  }
+  .card-action-btn.del:hover { background: var(--danger); color: #fff; }
+
+  .card-info {
+    padding: 0.6rem 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .card-name {
+    font-size: 0.65rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 0.2rem;
+  }
+
+  .card-meta { font-size: 0.6rem; color: var(--muted); }
+
+  /* Empty / loading states */
+  .state-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  .state-empty .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.2; }
+
+  /* Toast */
+  #toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+  }
+
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+    max-width: 300px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: toastIn 0.2s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  .toast.success { border-color: var(--accent); }
+  .toast.error { border-color: var(--danger); }
+  .toast.info { border-color: var(--accent2); }
+
+  .toast-icon { font-size: 1rem; }
+
+  /* Confirm modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.15s ease;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    width: 340px;
+    animation: scaleIn 0.15s ease;
+  }
+
+  .modal h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .modal p { font-size: 0.75rem; color: var(--muted); margin-bottom: 1.5rem; }
+
+  .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+
+  /* Animations */
+  @keyframes slideDown { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: none; } }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: none; } }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes scaleIn { from { transform: scale(0.95); opacity:0; } to { transform: none; opacity:1; } }
+  @keyframes toastIn { from { transform: translateX(20px); opacity:0; } to { transform: none; opacity:1; } }
+
+  /* Skeleton loading */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface) 25%, var(--border) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
+    border-radius: var(--radius);
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  .skeleton-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .skeleton-thumb { width:100%; aspect-ratio:1; }
+  .skeleton-info { padding: 0.6rem 0.75rem; display:flex; flex-direction:column; gap:0.4rem; }
+  .skeleton-line { height: 8px; border-radius:4px; }
+
+  @media (max-width: 640px) {
+    .config-grid { grid-template-columns: 1fr; }
+    .toolbar { flex-direction: column; align-items: flex-start; }
+    main { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    IMAGE ADMIN
+  </div>
+  <div class="header-meta">
+    <div class="status-indicator">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">not connected</span>
+    </div>
+    <button class="btn btn-ghost" onclick="toggleConfig()" style="padding:0.3rem 0.75rem;font-size:0.68rem;">⚙ config</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- Config Panel -->
+  <div class="config-panel" id="configPanel">
+    <h2>⚡ Supabase Config</h2>
+    <div class="config-grid">
+      <div class="field">
+        <label>Project URL</label>
+        <input type="text" id="supaUrl" placeholder="URL"/>
+      </div>
+      <div class="field">
+        <label>Anon / Service Key</label>
+        <input type="password" id="supaKey" placeholder="key"/>
+      </div>
+      <div class="field">
+        <label>Bucket Name</label>
+        <input type="text" id="supaBucket" placeholder="images" value="images" />
+      </div>
+      <div class="field">
+        <label>Folder (optional)</label>
+        <input type="text" id="supaFolder" placeholder="media" value="images" />
+      </div>
+      <button class="btn btn-primary" onclick="connect()">Connect →</button>
+    </div>
+  </div>
+
+  <!-- Upload Zone -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="image/*,video/mp4" multiple onchange="handleFiles(this.files)" />
+    <div class="upload-icon">⬆</div>
+    <div class="upload-text">
+      Drop images here or <strong>click to browse</strong><br>
+      <span style="font-size:0.65rem;margin-top:0.3rem;display:block;">PNG, JPG, WEBP, GIF — multiple files supported</span>
+    </div>
+    <div class="upload-progress" id="uploadProgress">
+      <div class="progress-label" id="progressLabel">Uploading...</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <span class="image-count" id="imageCount">0 images</span>
+      <button class="btn btn-ghost" onclick="loadImages()" style="padding:0.35rem 0.8rem;font-size:0.7rem;">↻ refresh</button>
+    </div>
+  </div>
+
+  <!-- Image Grid -->
+  <div class="image-grid" id="imageGrid">
+    <div class="state-empty" id="emptyState">
+      <div class="empty-icon">🖼</div>
+      Connect to Supabase to view your images
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Confirm Modal -->
+<div id="confirmModal" style="display:none;">
+  <div class="modal-backdrop" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3>Delete image?</h3>
+      <p id="confirmModalMsg">This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn" style="background:var(--danger);color:#fff;" onclick="confirmDelete()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Use a single global db object to avoid naming conflict with supabase CDN library
+  let db = null;
+  let bucket = 'images';
+  let folder = 'media';
+  let pendingDeletePath = null;
+  let configVisible = true;
+
+  function toggleConfig() {
+    configVisible = !configVisible;
+    document.getElementById('configPanel').style.display = configVisible ? 'block' : 'none';
+  }
+
+  async function connect() {
+    const url = document.getElementById('supaUrl').value.trim();
+    const key = document.getElementById('supaKey').value.trim();
+    bucket = document.getElementById('supaBucket').value.trim() || 'images';
+    folder = document.getElementById('supaFolder').value.trim().replace(/^\/|\/$/g, ''); // strip slashes
+
+    if (!url || !key) { toast('Please fill in URL and API key', 'error'); return; }
+
+    try {
+      db = window.supabase.createClient(url, key);
+      const { data, error } = await db.storage.from(bucket).list('', { limit: 1 });
+      if (error) throw error;
+
+      setStatus('connected');
+      toast(`Connected to bucket "${bucket}"`, 'success');
+      toggleConfig();
+      loadImages();
+    } catch (e) {
+      setStatus('error');
+      toast(e.message || 'Connection failed', 'error');
+    }
+  }
+
+  function setStatus(s) {
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    dot.className = 'status-dot ' + s;
+    txt.textContent = s === 'connected' ? `${bucket}/${folder || ''}` : s;
+  }
+
+  async function loadImages() {
+    if (!db) { toast('Not connected', 'error'); return; }
+
+    const grid = document.getElementById('imageGrid');
+    grid.innerHTML = '';
+    for (let i = 0; i < 8; i++) {
+      grid.innerHTML += `<div class="skeleton-card">
+        <div class="skeleton skeleton-thumb"></div>
+        <div class="skeleton-info">
+          <div class="skeleton skeleton-line" style="width:70%"></div>
+          <div class="skeleton skeleton-line" style="width:40%"></div>
+        </div>
+      </div>`;
+    }
+
+    try {
+      const { data, error } = await db.storage.from(bucket).list(folder || '', { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
+      if (error) throw error;
+
+      const images = data.filter(f => f.name && !f.name.startsWith('.'));
+      grid.innerHTML = '';
+      document.getElementById('imageCount').textContent = `${images.length} image${images.length !== 1 ? 's' : ''}`;
+
+      if (images.length === 0) {
+        grid.innerHTML = `<div class="state-empty"><div class="empty-icon">📂</div>No images in this bucket yet</div>`;
+        return;
+      }
+
+      images.forEach((file, i) => {
+        const card = document.createElement('div');
+        card.className = 'image-card';
+        
+
+        card.style.animationDelay = `${i * 0.04}s`;
+
+        const filePath = folder ? `${folder}/${file.name}` : file.name;
+        card.setAttribute('data-path', filePath);
+        const { data: { publicUrl } } = db.storage.from(bucket).getPublicUrl(filePath);
+        const size = file.metadata?.size ? formatBytes(file.metadata.size) : '';
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isImg = ['jpg','jpeg','png','gif','webp','svg','avif'].includes(ext);
+        const isVideo = ['mp4','webm','ogg'].includes(ext);
+
+
+        card.innerHTML = `
+          <div class="card-actions">
+            <button class="card-action-btn copy" title="Copy URL" onclick="copyUrl('${publicUrl}')">⎘</button>
+            <button class="card-action-btn del" title="Delete" onclick="askDelete('${filePath}')">✕</button>
+          </div>
+          ${isImg ? `<img class="card-thumb" src="${publicUrl}" alt="${file.name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-thumb-placeholder" style="display:none">🖼</div>`: isVideo? `<video class="card-thumb" src="${publicUrl}" muted controls></video>`: `<div class="card-thumb-placeholder">📄</div>`}
+
+          <div class="card-info">
+            <div class="card-name">${file.name}</div>
+            <div class="card-meta">${size}</div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    } catch (e) {
+      grid.innerHTML = `<div class="state-empty"><div class="empty-icon">⚠</div>${e.message}</div>`;
+      toast(e.message, 'error');
+    }
+  }
+
+  async function handleFiles(files) {
+    if (!db) { toast('Connect to Supabase first', 'error'); return; }
+    if (!files.length) return;
+
+    const progress = document.getElementById('uploadProgress');
+    const fill = document.getElementById('progressFill');
+    const label = document.getElementById('progressLabel');
+    progress.classList.add('active');
+
+    let done = 0;
+    const total = files.length;
+
+    for (const file of files) {
+      label.textContent = `Uploading ${file.name}…`;
+      const path = folder
+        ? `${folder}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`
+        : `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+      try {
+        const { error } = await db.storage.from(bucket).upload(path, file, { cacheControl: '3600', upsert: false });
+        if (error) throw error;
+        done++;
+        fill.style.width = `${(done / total) * 100}%`;
+        toast(`Uploaded: ${file.name}`, 'success');
+      } catch (e) {
+        toast(`Failed: ${file.name} — ${e.message}`, 'error');
+        done++;
+        fill.style.width = `${(done / total) * 100}%`;
+      }
+    }
+
+    setTimeout(() => {
+      progress.classList.remove('active');
+      fill.style.width = '0%';
+    }, 800);
+
+    document.getElementById('fileInput').value = '';
+    loadImages();
+  }
+
+  function askDelete(path) {
+    pendingDeletePath = path;
+    document.getElementById('confirmModalMsg').textContent = `"${path}" will be permanently deleted.`;
+    document.getElementById('confirmModal').style.display = 'flex';
+  }
+
+  function closeModal() {
+    pendingDeletePath = null;
+    document.getElementById('confirmModal').style.display = 'none';
+  }
+
+async function confirmDelete() {
+  if (!pendingDeletePath || !db) {
+    toast('No file selected or database not connected', 'error');
+    return;
+  }
+  
+  const pathToDelete = pendingDeletePath; // Capture it
+  closeModal(); 
+  
+  try {
+    // Supabase .remove() requires an ARRAY of strings
+    const { data, error } = await db.storage
+      .from(bucket)
+      .remove([pathToDelete]);
+
+    if (error) throw error;
+
+    // Check if data is empty (Supabase returns an empty array if nothing was deleted)
+    if (!data || data.length === 0) {
+      toast('File not found or already deleted', 'error');
+    } else {
+      toast(`Deleted: ${pathToDelete}`, 'info');
+    }
+    
+    // Remove from UI instead of reload
+    const el = document.querySelector(`[data-path="${pathToDelete}"]`);
+    if (el) el.remove();
+
+    // Update counter
+    const countEl = document.getElementById('imageCount');
+    const current = document.querySelectorAll('.image-card').length;
+    countEl.textContent = `${current} image${current !== 1 ? 's' : ''}`;
+
+  } catch (e) {
+    console.error("Delete Error:", e);
+    toast(e.message || 'Delete failed', 'error');
+  } finally {
+    pendingDeletePath = null;
+  }
+}
+
+  async function copyUrl(url) {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('URL copied to clipboard', 'success');
+    } catch {
+      toast('Copy failed', 'error');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const zone = document.getElementById('uploadZone');
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      handleFiles(e.dataTransfer.files);
+    });
+  });
+
+  function toast(msg, type = 'info') {
+    const icons = { success: '✓', error: '✕', info: 'ℹ' };
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span class="toast-icon">${icons[type]}</span><span>${msg}</span>`;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+</script>
+</body>
+</html>
