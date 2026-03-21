@@ -531,6 +531,19 @@
     .toolbar { flex-direction: column; align-items: flex-start; }
     main { padding: 1rem; }
   }
+  
+  .version-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    }
 </style>
 </head>
 <body>
@@ -599,6 +612,11 @@
         <option value="100" selected>100 / page</option>
         <option value="200">200 / page</option>
       </select>
+      <select id="mediaFilter" class="sort-select" onchange="changeMediaFilter()">
+        <option value="all">All</option>
+		<option value="image">Images</option>
+		<option value="video">Videos</option>
+      </select>
       <button class="btn btn-ghost" onclick="loadImages()" style="padding:0.35rem 0.8rem;font-size:0.7rem;">↻ refresh</button>
     </div>
     <div class="pagination">
@@ -614,6 +632,8 @@
       Connect to Supabase to view your images
     </div>
   </div>
+  
+  <div class="version-tag">v1.0.2</div>
 
 </main>
 
@@ -651,6 +671,7 @@
   let currentPage = 1;
   let pageSize = 100;
   let hasMorePages = false;
+  let mediaFilter = 'all';
 
   function toggleConfig() {
     configVisible = !configVisible;
@@ -766,11 +787,25 @@
         offset,
         sortBy: { column: 'created_at', order: sortOrder }
       });
-      if (error) throw error;
+		if (error) throw error;
 
-      const items = data.filter(f => f.name && !f.name.startsWith('.'));
-      hasMorePages = items.length > pageSize;
-      const images = hasMorePages ? items.slice(0, pageSize) : items;
+		  const items = data.filter(f => f.name && !f.name.startsWith('.'));
+		  hasMorePages = items.length > pageSize;
+		  let filtered = items.filter(file => {
+		  const ext = file.name.split('.').pop().toLowerCase();
+
+		  const isImg = ['jpg','jpeg','png','gif','webp','svg','avif'].includes(ext);
+		  const isVideo = ['mp4','webm','ogg'].includes(ext);
+
+		  if (mediaFilter === 'image') return isImg;
+		  if (mediaFilter === 'video') return isVideo;
+
+		   return true;
+		});
+
+     hasMorePages = filtered.length > pageSize;
+     const images = hasMorePages ? filtered.slice(0, pageSize) : filtered;
+
 
       grid.innerHTML = '';
       updatePaginationUI(images.length);
@@ -945,6 +980,13 @@ async function confirmDelete() {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / 1024 / 1024).toFixed(1) + ' MB';
   }
+  
+  function changeMediaFilter() {
+	  mediaFilter = document.getElementById('mediaFilter')?.value || 'all';
+	  currentPage = 1;
+	  loadImages();
+  }
+
 </script>
 </body>
 </html>
