@@ -194,6 +194,22 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .sort-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.35rem 0.6rem;
+    outline: none;
+  }
+
+  .sort-select:focus {
+    border-color: var(--accent);
   }
 
   .image-count {
@@ -203,6 +219,19 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 999px;
+  }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .page-info {
+    font-size: 0.68rem;
+    color: var(--muted);
+    padding: 0.3rem 0.1rem;
   }
 
   /* Upload zone */
@@ -517,7 +546,21 @@
   <div class="toolbar">
     <div class="toolbar-left">
       <span class="image-count" id="imageCount">0 images</span>
+      <select id="sortOrder" class="sort-select" onchange="changeSortOrder()">
+        <option value="desc">Newest first</option>
+        <option value="asc">Oldest first</option>
+      </select>
+      <select id="pageSize" class="sort-select" onchange="changePageSize()">
+        <option value="50">50 / page</option>
+        <option value="100" selected>100 / page</option>
+        <option value="200">200 / page</option>
+      </select>
       <button class="btn btn-ghost" onclick="loadImages()" style="padding:0.35rem 0.8rem;font-size:0.7rem;">↻ refresh</button>
+    </div>
+    <div class="pagination">
+      <button class="btn btn-ghost" id="prevPageBtn" onclick="changePage(-1)" style="padding:0.35rem 0.8rem;font-size:0.7rem;">← prev</button>
+      <span class="page-info" id="pageInfo">Page 1</span>
+      <button class="btn btn-ghost" id="nextPageBtn" onclick="changePage(1)" style="padding:0.35rem 0.8rem;font-size:0.7rem;">next →</button>
     </div>
   </div>
 
@@ -555,6 +598,10 @@
   let folder = 'media';
   let pendingDeletePath = null;
   let configVisible = true;
+  let sortOrder = 'desc';
+  let currentPage = 1;
+  let pageSize = 100;
+  let hasMorePages = false;
 
   function toggleConfig() {
     configVisible = !configVisible;
@@ -591,8 +638,48 @@
     txt.textContent = s === 'connected' ? `${bucket}/${folder || ''}` : s;
   }
 
+  function updatePaginationUI(loadedCount = 0) {
+    const pageInfo = document.getElementById('pageInfo');
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+    const countLabel = loadedCount === pageSize || hasMorePages
+      ? `${loadedCount} images on page ${currentPage}`
+      : `${loadedCount} image${loadedCount !== 1 ? 's' : ''} on page ${currentPage}`;
+
+    document.getElementById('imageCount').textContent = countLabel;
+    pageInfo.textContent = hasMorePages
+      ? `Page ${currentPage} · more pages available`
+      : `Page ${currentPage}`;
+    prevBtn.disabled = currentPage === 1;
+    nextBtn.disabled = !hasMorePages;
+    prevBtn.style.opacity = currentPage === 1 ? '0.5' : '1';
+    nextBtn.style.opacity = !hasMorePages ? '0.5' : '1';
+  }
+
+  function changePage(step) {
+    const nextPage = currentPage + step;
+    if (nextPage < 1) return;
+    if (step > 0 && !hasMorePages) return;
+    currentPage = nextPage;
+    loadImages();
+  }
+
+  function changeSortOrder() {
+    currentPage = 1;
+    loadImages();
+  }
+
+  function changePageSize() {
+    pageSize = Number(document.getElementById('pageSize')?.value || 100);
+    currentPage = 1;
+    loadImages();
+  }
+
   async function loadImages() {
     if (!db) { toast('Not connected', 'error'); return; }
+
+    sortOrder = document.getElementById('sortOrder')?.value || 'desc';
+    pageSize = Number(document.getElementById('pageSize')?.value || 100);
 
     const grid = document.getElementById('imageGrid');
     grid.innerHTML = '';
@@ -607,15 +694,23 @@
     }
 
     try {
-      const { data, error } = await db.storage.from(bucket).list(folder || '', { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
+      const offset = (currentPage - 1) * pageSize;
+      const { data, error } = await db.storage.from(bucket).list(folder || '', {
+        limit: pageSize + 1,
+        offset,
+        sortBy: { column: 'created_at', order: sortOrder }
+      });
       if (error) throw error;
 
-      const images = data.filter(f => f.name && !f.name.startsWith('.'));
+      const items = data.filter(f => f.name && !f.name.startsWith('.'));
+      hasMorePages = items.length > pageSize;
+      const images = hasMorePages ? items.slice(0, pageSize) : items;
+
       grid.innerHTML = '';
-      document.getElementById('imageCount').textContent = `${images.length} image${images.length !== 1 ? 's' : ''}`;
+      updatePaginationUI(images.length);
 
       if (images.length === 0) {
-        grid.innerHTML = `<div class="state-empty"><div class="empty-icon">📂</div>No images in this bucket yet</div>`;
+        grid.innerHTML = `<div class="state-empty"><div class="empty-icon">📂</div>No images on this page</div>`;
         return;
       }
 
@@ -650,6 +745,8 @@
         grid.appendChild(card);
       });
     } catch (e) {
+      hasMorePages = false;
+      updatePaginationUI(0);
       grid.innerHTML = `<div class="state-empty"><div class="empty-icon">⚠</div>${e.message}</div>`;
       toast(e.message, 'error');
     }
@@ -734,9 +831,8 @@ async function confirmDelete() {
     if (el) el.remove();
 
     // Update counter
-    const countEl = document.getElementById('imageCount');
     const current = document.querySelectorAll('.image-card').length;
-    countEl.textContent = `${current} image${current !== 1 ? 's' : ''}`;
+    updatePaginationUI(current);
 
   } catch (e) {
     console.error("Delete Error:", e);
