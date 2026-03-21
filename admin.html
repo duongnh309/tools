@@ -318,6 +318,7 @@
     object-fit: cover;
     display: block;
     background: var(--bg);
+    cursor: zoom-in;
   }
 
   .card-thumb-placeholder {
@@ -339,6 +340,7 @@
     gap: 0.3rem;
     opacity: 0;
     transition: opacity 0.2s;
+    z-index: 2;
   }
 
   .card-action-btn {
@@ -380,6 +382,51 @@
   }
 
   .card-meta { font-size: 0.6rem; color: var(--muted); }
+
+  /* Lightbox / Fullscreen Modal */
+  .fullscreen-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,5,8,0.98);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .fullscreen-content {
+    max-width: 95%;
+    max-height: 85vh;
+    border-radius: var(--radius);
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .fullscreen-header {
+    width: 100%;
+    max-width: 95%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    color: var(--text);
+  }
+
+  .close-fullscreen {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .close-fullscreen:hover { border-color: var(--accent); color: var(--accent); }
 
   /* Empty / loading states */
   .state-empty {
@@ -457,7 +504,7 @@
   @keyframes slideDown { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: none; } }
   @keyframes fadeUp { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: none; } }
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-  @keyframes scaleIn { from { transform: scale(0.95); opacity:0; } to { transform: none; opacity:1; } }
+  @keyframes scaleIn { from { transform: scale(0.95); opacity:0; } to { transform: scale(1); opacity:1; } }
   @keyframes toastIn { from { transform: translateX(20px); opacity:0; } to { transform: none; opacity:1; } }
 
   /* Skeleton loading */
@@ -504,7 +551,6 @@
 
 <main>
 
-  <!-- Config Panel -->
   <div class="config-panel" id="configPanel">
     <h2>⚡ Supabase Config</h2>
     <div class="config-grid">
@@ -528,7 +574,6 @@
     </div>
   </div>
 
-  <!-- Upload Zone -->
   <div class="upload-zone" id="uploadZone">
     <input type="file" id="fileInput" accept="image/*,video/mp4" multiple onchange="handleFiles(this.files)" />
     <div class="upload-icon">⬆</div>
@@ -542,7 +587,6 @@
     </div>
   </div>
 
-  <!-- Toolbar -->
   <div class="toolbar">
     <div class="toolbar-left">
       <span class="image-count" id="imageCount">0 images</span>
@@ -564,7 +608,6 @@
     </div>
   </div>
 
-  <!-- Image Grid -->
   <div class="image-grid" id="imageGrid">
     <div class="state-empty" id="emptyState">
       <div class="empty-icon">🖼</div>
@@ -574,10 +617,16 @@
 
 </main>
 
-<!-- Toast container -->
+<div id="lightbox" class="fullscreen-modal" onclick="closeLightbox()">
+  <div class="fullscreen-header" onclick="event.stopPropagation()">
+    <span id="lightboxTitle" style="font-size: 0.8rem; color: var(--muted)">Filename.jpg</span>
+    <button class="close-fullscreen" onclick="closeLightbox()">✕</button>
+  </div>
+  <img id="lightboxImg" class="fullscreen-content" src="" onclick="event.stopPropagation()" />
+</div>
+
 <div id="toast-container"></div>
 
-<!-- Confirm Modal -->
 <div id="confirmModal" style="display:none;">
   <div class="modal-backdrop" onclick="closeModal()">
     <div class="modal" onclick="event.stopPropagation()">
@@ -675,6 +724,23 @@
     loadImages();
   }
 
+  // Feature: Lightbox Logic
+  function openLightbox(url, name) {
+    const lb = document.getElementById('lightbox');
+    const img = document.getElementById('lightboxImg');
+    const title = document.getElementById('lightboxTitle');
+    img.src = url;
+    title.textContent = name;
+    lb.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // Prevent scroll
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.getElementById('lightboxImg').src = '';
+    document.body.style.overflow = 'auto';
+  }
+
   async function loadImages() {
     if (!db) { toast('Not connected', 'error'); return; }
 
@@ -729,13 +795,15 @@
         const isImg = ['jpg','jpeg','png','gif','webp','svg','avif'].includes(ext);
         const isVideo = ['mp4','webm','ogg'].includes(ext);
 
+        // Escape quotes in name for the onclick handler
+        const safeName = file.name.replace(/'/g, "\\'");
 
         card.innerHTML = `
           <div class="card-actions">
             <button class="card-action-btn copy" title="Copy URL" onclick="copyUrl('${publicUrl}')">⎘</button>
             <button class="card-action-btn del" title="Delete" onclick="askDelete('${filePath}')">✕</button>
           </div>
-          ${isImg ? `<img class="card-thumb" src="${publicUrl}" alt="${file.name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-thumb-placeholder" style="display:none">🖼</div>`: isVideo? `<video class="card-thumb" src="${publicUrl}" muted controls></video>`: `<div class="card-thumb-placeholder">📄</div>`}
+          ${isImg ? `<img class="card-thumb" src="${publicUrl}" alt="${file.name}" loading="lazy" onclick="openLightbox('${publicUrl}', '${safeName}')" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="card-thumb-placeholder" style="display:none">🖼</div>`: isVideo? `<video class="card-thumb" src="${publicUrl}" muted controls></video>`: `<div class="card-thumb-placeholder">📄</div>`}
 
           <div class="card-info">
             <div class="card-name">${file.name}</div>
@@ -812,25 +880,21 @@ async function confirmDelete() {
   closeModal(); 
   
   try {
-    // Supabase .remove() requires an ARRAY of strings
     const { data, error } = await db.storage
       .from(bucket)
       .remove([pathToDelete]);
 
     if (error) throw error;
 
-    // Check if data is empty (Supabase returns an empty array if nothing was deleted)
     if (!data || data.length === 0) {
       toast('File not found or already deleted', 'error');
     } else {
       toast(`Deleted: ${pathToDelete}`, 'info');
     }
     
-    // Remove from UI instead of reload
     const el = document.querySelector(`[data-path="${pathToDelete}"]`);
     if (el) el.remove();
 
-    // Update counter
     const current = document.querySelectorAll('.image-card').length;
     updatePaginationUI(current);
 
@@ -850,6 +914,11 @@ async function confirmDelete() {
       toast('Copy failed', 'error');
     }
   }
+
+  // Global listener for Escape key to close lightbox
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox();
+  });
 
   document.addEventListener('DOMContentLoaded', () => {
     const zone = document.getElementById('uploadZone');
