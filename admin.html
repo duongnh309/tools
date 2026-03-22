@@ -543,7 +543,18 @@
     display: inline-block;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    }
+  }
+
+  .pagination-bottom {
+    position: absolute;
+    bottom: 1rem;       /* Distance from bottom */
+    right: 1rem;        /* Distance from right */
+
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
 </style>
 </head>
 <body>
@@ -632,8 +643,14 @@
       Connect to Supabase to view your images
     </div>
   </div>
-  
-  <div class="version-tag">v1.0.2</div>
+
+  <!-- <div class="pagination-bottom" style="margin-top:2rem;">
+      <button class="btn btn-ghost" id="prevPageBtn" onclick="changePage(-1)" style="padding:0.35rem 0.8rem;font-size:0.7rem;">← prev</button>
+      <span class="page-info" id="pageInfo">Page 1</span>
+      <button class="btn btn-ghost" id="nextPageBtn" onclick="changePage(1)" style="padding:0.35rem 0.8rem;font-size:0.7rem;">next →</button>
+  </div> -->
+
+  <!-- <div class="version-tag">v1.0.2</div> -->
 
 </main>
 
@@ -781,30 +798,47 @@
     }
 
     try {
-      const offset = (currentPage - 1) * pageSize;
-      const { data, error } = await db.storage.from(bucket).list(folder || '', {
-        limit: pageSize + 1,
-        offset,
-        sortBy: { column: 'created_at', order: sortOrder }
+      let items = [];
+      if (mediaFilter === 'all') {
+        const offset = (currentPage - 1) * pageSize;
+        const { data, error } = await db.storage.from(bucket).list(folder || '', {
+          limit: pageSize + 1,
+          offset,
+          sortBy: { column: 'created_at', order: sortOrder }
+        });
+        if (error) throw error;
+        items = data.filter(f => f.name && !f.name.startsWith('.'));
+      } else {
+        // For filtered media, fetch all (paged) then filter locally
+        const batchSize = 1000;
+        let offset = 0;
+        while (true) {
+          const { data, error } = await db.storage.from(bucket).list(folder || '', {
+            limit: batchSize,
+            offset,
+            sortBy: { column: 'created_at', order: sortOrder }
+          });
+          if (error) throw error;
+          const chunk = data.filter(f => f.name && !f.name.startsWith('.'));
+          items = items.concat(chunk);
+          if (chunk.length < batchSize) break;
+          offset += batchSize;
+        }
+      }
+
+      let filtered = items.filter(file => {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isImg = ['jpg','jpeg','png','gif','webp','svg','avif'].includes(ext);
+        const isVideo = ['mp4','webm','ogg'].includes(ext);
+        if (mediaFilter === 'image') return isImg;
+        if (mediaFilter === 'video') return isVideo;
+        return true;
       });
-		if (error) throw error;
 
-		  const items = data.filter(f => f.name && !f.name.startsWith('.'));
-		  hasMorePages = items.length > pageSize;
-		  let filtered = items.filter(file => {
-		  const ext = file.name.split('.').pop().toLowerCase();
-
-		  const isImg = ['jpg','jpeg','png','gif','webp','svg','avif'].includes(ext);
-		  const isVideo = ['mp4','webm','ogg'].includes(ext);
-
-		  if (mediaFilter === 'image') return isImg;
-		  if (mediaFilter === 'video') return isVideo;
-
-		   return true;
-		});
-
-     hasMorePages = filtered.length > pageSize;
-     const images = hasMorePages ? filtered.slice(0, pageSize) : filtered;
+      const start = (currentPage - 1) * pageSize;
+      const end = start + pageSize;
+      hasMorePages = filtered.length > end;
+      const images = filtered.slice(start, end);
 
 
       grid.innerHTML = '';
