@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thiệp chúc mừng 20/10</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: linear-gradient(180deg, #ffd9e8 0%, #fff0d9 50%, #dff7e6 100%);
+    color: #7a1f4b;
+  }
+
+  /* ---------- nền động ---------- */
+  .orb { position: fixed; border-radius: 50%; filter: blur(40px); opacity: .55; animation: drift 14s ease-in-out infinite alternate; pointer-events: none; }
+  .orb.a { width: 340px; height: 340px; background: #ffc2dc; top: -80px; left: -60px; }
+  .orb.b { width: 300px; height: 300px; background: #ffe9a8; top: 20%; right: -80px; animation-delay: -5s; }
+  .orb.c { width: 380px; height: 380px; background: #c9f0ff; bottom: 10%; left: 20%; animation-delay: -9s; opacity: .4; }
+  @keyframes drift { to { transform: translate(40px, 30px) scale(1.15); } }
+
+  /* ---------- màn hình hộp quà ---------- */
+  #intro {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 34px; z-index: 10;
+    transition: opacity 1s ease, transform 1s ease;
+  }
+  #intro.gone { opacity: 0; transform: scale(1.25); pointer-events: none; }
+  .whisper {
+    font-size: 1.05rem; letter-spacing: .18em; text-transform: uppercase;
+    color: #b0397a; opacity: .85; animation: pulse 2.6s ease-in-out infinite; text-align: center; padding: 0 20px;
+  }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  .gift {
+    position: relative; width: 170px; height: 170px; border: 0; background: none; cursor: pointer;
+    animation: wobble 3.2s ease-in-out infinite; outline: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .gift:hover { animation-play-state: paused; transform: scale(1.08); }
+  .gift:focus-visible .box { box-shadow: 0 0 0 4px #fff, 0 0 0 8px #e0488f; }
+  @keyframes wobble {
+    0%, 70%, 100% { transform: rotate(0); }
+    76% { transform: rotate(-6deg); } 82% { transform: rotate(6deg); }
+    88% { transform: rotate(-4deg); } 94% { transform: rotate(3deg); }
+  }
+  .glow {
+    position: absolute; inset: -50px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,120,180,.55), transparent 65%);
+    animation: breathe 2.4s ease-in-out infinite; z-index: -1;
+  }
+  @keyframes breathe { 50% { transform: scale(1.25); opacity: .6; } }
+  .box {
+    position: absolute; left: 10px; right: 10px; bottom: 0; height: 110px;
+    background: linear-gradient(135deg, #ff5fa2, #d6247b); border-radius: 8px;
+    box-shadow: 0 14px 30px rgba(214,36,123,.35); display: grid; place-items: center;
+    font-size: 3.2rem; font-weight: 800; color: rgba(255,255,255,.9);
+    text-shadow: 0 2px 10px rgba(120,0,60,.4);
+  }
+  .box::before, .lid::before {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 26px; margin-left: -13px;
+    background: linear-gradient(90deg, #ffe38a, #ffc93c, #ffe38a);
+  }
+  .lid {
+    position: absolute; left: 0; right: 0; bottom: 100px; height: 40px;
+    background: linear-gradient(135deg, #ff7fb7, #e23a8c); border-radius: 8px;
+    box-shadow: 0 6px 12px rgba(0,0,0,.12); transition: transform .9s cubic-bezier(.3,1.6,.5,1), opacity .9s;
+  }
+  .bow { position: absolute; left: 50%; top: -30px; width: 70px; height: 34px; margin-left: -35px; }
+  .bow i { position: absolute; top: 0; width: 34px; height: 30px; border: 7px solid #ffc93c; border-radius: 50% 50% 50% 0; }
+  .bow i:first-child { left: 0; transform: rotate(-20deg); }
+  .bow i:last-child { right: 0; transform: scaleX(-1) rotate(-20deg); }
+  .gift.open .lid { transform: translateY(-190px) rotate(-28deg); opacity: 0; }
+  .gift.open .box { animation: pop .5s ease; }
+  @keyframes pop { 50% { transform: scale(1.12); } }
+  .gift.open .glow { animation: flash 1s ease-out forwards; }
+  @keyframes flash { to { transform: scale(6); opacity: 0; } }
+
+  .spark { position: absolute; width: 10px; height: 10px; background: #fff; border-radius: 50%; box-shadow: 0 0 12px 4px #ffb3d6; animation: twinkle 2s ease-in-out infinite; }
+  @keyframes twinkle { 0%,100% { transform: scale(0); opacity: 0; } 50% { transform: scale(1); opacity: 1; } }
+
+  /* ---------- vườn hoa ---------- */
+  #garden { position: fixed; inset: 0; visibility: hidden; z-index: 5; }
+  #garden.show { visibility: visible; }
+  .ground {
+    position: absolute; left: -5%; right: -5%; bottom: -30px; height: 22vh; min-height: 120px;
+    background: linear-gradient(180deg, #8fdc8a, #4fb86a);
+    border-radius: 50% 50% 0 0 / 40px 40px 0 0;
+    transform: translateY(100%); transition: transform 1.2s cubic-bezier(.2,.8,.2,1);
+  }
+  #garden.show .ground { transform: translateY(0); }
+  .ground.back { background: linear-gradient(180deg, #b6ec9c, #7fd081); bottom: 6vh; height: 20vh; z-index: -1; }
+
+  .flower { position: absolute; bottom: 8vh; transform-origin: 50% 100%; }
+  .flower svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .flower.sway { animation: sway 5s ease-in-out infinite alternate; }
+  @keyframes sway { from { transform: rotate(-2.2deg); } to { transform: rotate(2.2deg); } }
+
+  .stem { fill: none; stroke: #3a9a50; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 400; stroke-dashoffset: 400; }
+  .leaf { fill: #4fb86a; transform: scale(0); }
+  .head { transform: scale(0); }
+  .layer { transform: scale(0) rotate(-50deg); }
+  .glowdot { opacity: 0; }
+
+  #garden.show .stem { animation: grow 1.6s ease-out forwards; animation-delay: var(--d); }
+  #garden.show .leaf { animation: leafIn .7s cubic-bezier(.3,1.5,.5,1) forwards; animation-delay: calc(var(--d) + 1s); }
+  #garden.show .head { animation: budIn .6s ease-out forwards; animation-delay: calc(var(--d) + 1.5s); }
+  #garden.show .layer { animation: bloom 1.3s cubic-bezier(.25,1.4,.4,1) forwards; animation-delay: calc(var(--d) + 1.6s + var(--l)); }
+  #garden.show .glowdot { animation: fadeIn 1s ease forwards; animation-delay: calc(var(--d) + 2.6s); }
+  @keyframes grow { to { stroke-dashoffset: 0; } }
+  @keyframes leafIn { to { transform: scale(1); } }
+  @keyframes budIn { to { transform: scale(.3); } }
+  @keyframes bloom { 0% { transform: scale(.15) rotate(-50deg); } 100% { transform: scale(1) rotate(0); } }
+  @keyframes fadeIn { to { opacity: 1; } }
+  /* head phóng to dần khi nở */
+  #garden.show .head { animation: budIn .6s ease-out forwards, headGrow 1.8s ease-out forwards; animation-delay: calc(var(--d) + 1.5s), calc(var(--d) + 1.7s); }
+  @keyframes headGrow { from { transform: scale(.3); } to { transform: scale(1); } }
+
+  /* ---------- lời chúc ---------- */
+  .wish {
+    position: absolute; top: 5vh; left: 0; right: 0; text-align: center; padding: 0 20px;
+    opacity: 0; transform: translateY(20px); z-index: 2; pointer-events: none;
+  }
+  #garden.show .wish { animation: wishIn 2s ease forwards; animation-delay: 3.2s; }
+  @keyframes wishIn { to { opacity: 1; transform: none; } }
+  .wish .date {
+    display: inline-block; font-size: .95rem; letter-spacing: .3em; color: #fff;
+    background: linear-gradient(90deg, #ff6aa8, #ff9a6a); padding: 6px 18px; border-radius: 999px;
+    box-shadow: 0 6px 16px rgba(255,106,168,.4);
+  }
+  .wish h1 {
+    margin-top: 14px; font-family: "Palatino Linotype", "Georgia", serif; font-style: italic;
+    font-size: clamp(1.8rem, 5.2vw, 3.6rem); line-height: 1.2;
+    background: linear-gradient(90deg, #d6247b, #f0623a, #d6247b); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 2px 0 rgba(255,255,255,.8));
+  }
+  .wish p {
+    margin: 12px auto 0; max-width: 640px; font-size: clamp(1rem, 2.4vw, 1.3rem); line-height: 1.6; color: #8a2a58;
+    text-shadow: 0 1px 0 rgba(255,255,255,.9);
+  }
+
+  .petal { position: fixed; top: -30px; width: 14px; height: 18px; border-radius: 80% 0 80% 0; opacity: .85; z-index: 4; pointer-events: none; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translate3d(var(--x), 110vh, 0) rotate(var(--r)); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flower.sway, .gift, .orb { animation: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="orb a"></div><div class="orb b"></div><div class="orb c"></div>
+
+  <!-- Hộp quà bí ẩn -->
+  <div id="intro">
+    <div class="whisper">Có một điều bí mật dành cho em…</div>
+    <button class="gift" id="gift" aria-label="Mở hộp quà">
+      <span class="glow"></span>
+      <span class="box">?</span>
+      <span class="lid"><span class="bow"><i></i><i></i></span></span>
+    </button>
+    <div class="whisper" style="font-size:.85rem;animation-delay:-1.2s">Chạm để mở</div>
+  </div>
+
+  <!-- Vườn hoa hồng -->
+  <div id="garden">
+    <div class="wish">
+      <span class="date">20 · 10</span>
+      <h1>Chúc Mừng Ngày Phụ Nữ Việt Nam</h1>
+      <p>Chúc em luôn rạng rỡ như những đóa hồng, mạnh mẽ, hạnh phúc và được yêu thương mỗi ngày. 🌹</p>
+    </div>
+    <div class="ground back"></div>
+    <div id="flowers"></div>
+    <div class="ground"></div>
+  </div>
+
+<script>
+(function () {
+  var NS = "http://www.w3.org/2000/svg";
+  var gift = document.getElementById("gift");
+  var intro = document.getElementById("intro");
+  var garden = document.getElementById("garden");
+  var box = document.getElementById("flowers");
+
+  // các tông màu hoa (hue, saturation)
+  var COLORS = [
+    [350, 82], [335, 85], [320, 70], [8, 90], [25, 95], [45, 100],
+    [280, 55], [265, 60], [0, 0], [15, 80], [190, 70], [340, 95]
+  ];
+
+  // lấp lánh quanh hộp quà
+  for (var i = 0; i < 10; i++) {
+    var s = document.createElement("span");
+    s.className = "spark";
+    var a = Math.random() * Math.PI * 2, r = 110 + Math.random() * 90;
+    s.style.left = "calc(50% + " + Math.cos(a) * r + "px)";
+    s.style.top = "calc(50% + " + Math.sin(a) * r * .7 + "px)";
+    s.style.animationDelay = (Math.random() * 2) + "s";
+    s.style.position = "fixed";
+    intro.appendChild(s);
+  }
+
+  function hsl(h, s, l) { return "hsl(" + h + "," + s + "%," + l + "%)"; }
+
+  function petalPath() { return "M0,0 C-24,-6 -28,-36 0,-42 C28,-36 24,-6 0,0Z"; }
+
+  function roseHead(h, s) {
+    var white = s === 0;
+    var shades = white ? [88, 94, 98] : [42, 54, 66];
+    var layers = [
+      { n: 6, scale: 1,   off: 0,  l: shades[0], delay: 0.5 },
+      { n: 5, scale: .72, off: 30, l: shades[1], delay: 0.25 },
+      { n: 4, scale: .46, off: 12, l: shades[2], delay: 0 }
+    ];
+    var g = '<g class="head"><g class="glowdot"><circle r="58" fill="' + hsl(h, 100, 85) + '" opacity=".35"/></g>';
+    layers.forEach(function (L) {
+      g += '<g class="layer" style="--l:' + L.delay + 's">';
+      for (var k = 0; k < L.n; k++) {
+        var ang = L.off + (360 / L.n) * k;
+        g += '<path d="' + petalPath() + '" transform="rotate(' + ang + ') scale(' + L.scale + ')" fill="' +
+             hsl(h, s, L.l) + '" stroke="' + hsl(h, s, Math.max(L.l - 18, 10)) + '" stroke-opacity=".55" stroke-width="1.2"/>';
+      }
+      g += '</g>';
+    });
+    g += '<g class="layer" style="--l:0s"><circle r="6" fill="' + hsl(h, s, white ? 80 : 36) + '"/>' +
+         '<path d="M-4,0 A4,4 0 1 1 3,3" fill="none" stroke="' + hsl(h, s, white ? 70 : 28) + '" stroke-width="1.4"/></g>';
+    return g + '</g>';
+  }
+
+  function makeFlower(xPct, w, h, delay, back) {
+    var color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    var hue = color[0], sat = color[1];
+    var lean = (Math.random() - .5) * 36;
+    var el = document.createElement("div");
+    el.className = "flower sway";
+    el.style.left = xPct + "%";
+    el.style.width = w + "px";
+    el.style.height = h + "px";
+    el.style.marginLeft = (-w / 2) + "px";
+    el.style.setProperty("--d", delay + "s");
+    el.style.animationDelay = (-Math.random() * 5) + "s";
+    el.style.animationDuration = (4 + Math.random() * 3) + "s";
+    if (back) { el.style.bottom = "13vh"; el.style.opacity = ".92"; el.style.zIndex = 0; } else { el.style.zIndex = 1; }
+
+    var cx = 50, hy = 55; // vị trí đầu hoa trong viewBox 100 x 100*h/w
+    var vbH = Math.round(100 * h / w);
+    var hx = cx + lean, bx = cx - lean * .8;
+    var stemD = "M" + cx + "," + vbH + " C" + bx + "," + (vbH * .7) + " " + (hx - lean * .5) + "," + (vbH * .35) + " " + hx + "," + hy;
+    var lyA = vbH * .72, lyB = vbH * .55;
+    var svg = '<svg viewBox="0 0 100 ' + vbH + '" preserveAspectRatio="xMidYMax meet">' +
+      '<path class="stem" d="' + stemD + '" pathLength="400"/>' +
+      '<path class="leaf" style="transform-origin:' + (cx - lean * .3) + 'px ' + lyA + 'px" d="M' + (cx - lean * .3) + ',' + lyA + ' C' + (cx - 30) + ',' + (lyA - 14) + ' ' + (cx - 34) + ',' + (lyA - 4) + ' ' + (cx - 38) + ',' + (lyA - 22) + ' C' + (cx - 14) + ',' + (lyA - 22) + ' ' + (cx - 8) + ',' + (lyA - 8) + ' ' + (cx - lean * .3) + ',' + lyA + 'Z"/>' +
+      '<path class="leaf" style="transform-origin:' + (cx + lean * .1) + 'px ' + lyB + 'px" d="M' + (cx + lean * .1) + ',' + lyB + ' C' + (cx + 30) + ',' + (lyB - 14) + ' ' + (cx + 34) + ',' + (lyB - 4) + ' ' + (cx + 38) + ',' + (lyB - 22) + ' C' + (cx + 14) + ',' + (lyB - 22) + ' ' + (cx + 8) + ',' + (lyB - 8) + ' ' + (cx + lean * .1) + ',' + lyB + 'Z"/>' +
+      '<g transform="translate(' + hx + ',' + hy + ')">' + roseHead(hue, sat) + '</g></svg>';
+    el.innerHTML = svg;
+    box.appendChild(el);
+  }
+
+  function plant() {
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var scale = Math.min(1, Math.max(.55, vw / 1100));
+    var maxH = vh * 0.46;
+    var n = vw < 600 ? 7 : 12;
+
+    // hàng sau (nhỏ, cao hơn)
+    for (var b = 0; b < n; b++) {
+      var xb = (b + .5) * (100 / n) + (Math.random() - .5) * 4;
+      var wb = (100 + Math.random() * 30) * scale;
+      makeFlower(xb, wb, Math.min(maxH * (.55 + Math.random() * .25), wb * 3), 0.3 + Math.random() * 3, true);
+    }
+    // hàng trước (to)
+    var nf = vw < 600 ? 6 : 10;
+    for (var f = 0; f < nf; f++) {
+      var xf = (f + .5) * (100 / nf) + (Math.random() - .5) * 5;
+      var wf = (140 + Math.random() * 50) * scale;
+      makeFlower(xf, wf, Math.min(maxH * (.75 + Math.random() * .25), wf * 3), 0.5 + Math.random() * 3.5, false);
+    }
+  }
+
+  // cánh hoa rơi
+  function petal() {
+    var p = document.createElement("span");
+    p.className = "petal";
+    var c = COLORS[Math.floor(Math.random() * COLORS.length)];
+    p.style.background = hsl(c[0], c[1] ? 85 : 0, c[1] ? 70 : 96);
+    p.style.left = Math.random() * 100 + "vw";
+    p.style.setProperty("--x", (Math.random() * 200 - 100) + "px");
+    p.style.setProperty("--r", (Math.random() * 720 - 360) + "deg");
+    p.style.animationDuration = (6 + Math.random() * 6) + "s";
+    document.body.appendChild(p);
+    setTimeout(function () { p.remove(); }, 13000);
+  }
+
+  var opened = false;
+  gift.addEventListener("click", function () {
+    if (opened) return;
+    opened = true;
+    gift.classList.add("open");
+    plant();
+    setTimeout(function () {
+      intro.classList.add("gone");
+      garden.classList.add("show");
+    }, 900);
+    setTimeout(function () { setInterval(petal, 450); }, 3500);
+  });
+})();
+</script>
+</body>
+</html>
